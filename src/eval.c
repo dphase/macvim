@@ -19689,6 +19689,10 @@ f_synIDattr(typval_T *argvars UNUSED, typval_T *rettv)
 							/* undercurl */
 		    p = highlight_has_attr(id, HL_UNDERCURL, modec);
 		break;
+        case 'v':
+                if (TOLOWER_ASC(what[1]) == 'b')
+                    p = highlight_has_attr(id, HL_VBEVEL, modec);
+                break;
     }
 
     if (p != NULL)

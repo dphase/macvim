@@ -25,7 +25,10 @@
  * resized.
  */
 
-#import "Miscellaneous.h"
+#import "Miscellaneous.h" // Defines MM_ENABLE_ATSUI
+
+#if !MM_ENABLE_ATSUI
+
 #import "MMAppController.h"
 #import "MMCoreTextView.h"
 #import "MMTextViewHelper.h"
@@ -43,24 +46,8 @@
 #define DRAW_ITALIC               0x10    /* draw italic text */
 #define DRAW_CURSOR               0x20
 #define DRAW_BEVEL                0x40
-#define DRAW_WIDE                 0x80    /* draw wide text */
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_8
-#define kCTFontOrientationDefault kCTFontDefaultOrientation
-#endif // MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_8
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_7
-    static void
-CTFontDrawGlyphs(CTFontRef fontRef, const CGGlyph glyphs[],
-                 const CGPoint positions[], UniCharCount count,
-                 CGContextRef context)
-{
-    CGFontRef cgFontRef = CTFontCopyGraphicsFont(fontRef, NULL);
-    CGContextSetFont(context, cgFontRef);
-    CGContextShowGlyphsAtPositions(context, glyphs, positions, count);
-    CGFontRelease(cgFontRef);
-}
-#endif // MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_7
+#define DRAW_VBEVEL               0x80
+#define DRAW_WIDE                 0x100   /* draw wide text */
 
 @interface MMCoreTextView (Private)
 - (MMWindowController *)windowController;
@@ -147,7 +134,6 @@ defaultAdvanceForFont(NSFont *font)
     [self registerForDraggedTypes:[NSArray arrayWithObjects:
             NSFilenamesPboardType, NSStringPboardType, nil]];
 
-    ligatures = NO;
     return self;
 }
 
@@ -322,9 +308,8 @@ defaultAdvanceForFont(NSFont *font)
         // NOTE: No need to set point size etc. since this is taken from the
         // regular font when drawing.
         [fontWide release];
-
         // Use 'Apple Color Emoji' font for rendering emoji
-        CGFloat size = [font pointSize];
+        CGFloat size = [newFont pointSize];
         NSFontDescriptor *emojiDesc = [NSFontDescriptor
             fontDescriptorWithName:@"Apple Color Emoji" size:size];
         NSFontDescriptor *newFontDesc = [newFont fontDescriptor];
@@ -392,11 +377,6 @@ defaultAdvanceForFont(NSFont *font)
     antialias = state;
 }
 
-- (void)setLigatures:(BOOL)state
-{
-    ligatures = state;
-}
-
 - (void)setImControl:(BOOL)enable
 {
     [helper setImControl:enable];
@@ -436,6 +416,11 @@ defaultAdvanceForFont(NSFont *font)
 - (void)doCommandBySelector:(SEL)selector
 {
     [helper doCommandBySelector:selector];
+}
+
+- (BOOL)performKeyEquivalent:(NSEvent *)event
+{
+    return [helper performKeyEquivalent:event];
 }
 
 - (BOOL)hasMarkedText
@@ -523,10 +508,13 @@ defaultAdvanceForFont(NSFont *font)
     [helper mouseMoved:event];
 }
 
+// Gesture event are new for OS X 10.6
+#if (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
 - (void)swipeWithEvent:(NSEvent *)event
 {
     [helper swipeWithEvent:event];
 }
+#endif
 
 - (NSMenu*)menuForEvent:(NSEvent *)event
 {
@@ -1011,83 +999,30 @@ defaultAdvanceForFont(NSFont *font)
 }
 
    static CTFontRef
-lookupFont(NSMutableArray *fontCache, const unichar *chars, UniCharCount count,
+lookupFont(NSMutableArray *fontCache, const unichar *chars,
            CTFontRef currFontRef)
 {
-    CGGlyph glyphs[count];
-
     // See if font in cache can draw at least one character
     NSUInteger i;
     for (i = 0; i < [fontCache count]; ++i) {
         NSFont *font = [fontCache objectAtIndex:i];
+        CGGlyph glyphs[1];
 
-        if (CTFontGetGlyphsForCharacters((CTFontRef)font, chars, glyphs, count))
+        if (CTFontGetGlyphsForCharacters((CTFontRef)font, chars, glyphs, 1))
             return (CTFontRef)[font retain];
     }
 
     // Ask Core Text for a font (can be *very* slow, which is why we cache
     // fonts in the first place)
-    CFRange r = { 0, count };
-    CFStringRef strRef = CFStringCreateWithCharacters(NULL, chars, count);
+    CFRange r = { 0, 1 };
+    CFStringRef strRef = CFStringCreateWithCharacters(NULL, chars, 1);
     CTFontRef newFontRef = CTFontCreateForString(currFontRef, strRef, r);
     CFRelease(strRef);
-
-    // Verify the font can actually convert all the glyphs.
-    if (!CTFontGetGlyphsForCharacters(newFontRef, chars, glyphs, count))
-        return nil;
 
     if (newFontRef)
         [fontCache addObject:(NSFont *)newFontRef];
 
     return newFontRef;
-}
-
-    static CFAttributedStringRef
-attributedStringForString(NSString *string, const CTFontRef font,
-                          BOOL useLigatures)
-{
-    NSDictionary *attrs = [NSDictionary dictionaryWithObjectsAndKeys:
-                            (id)font, kCTFontAttributeName,
-                            // 2 - full ligatures including rare
-                            // 1 - basic ligatures
-                            // 0 - no ligatures
-                            [NSNumber numberWithInteger:(useLigatures ? 1 : 0)],
-                            kCTLigatureAttributeName,
-                            nil
-    ];
-
-    return CFAttributedStringCreate(NULL, (CFStringRef)string,
-                                    (CFDictionaryRef)attrs);
-}
-
-    static UniCharCount
-fetchGlyphsAndAdvances(const CTLineRef line, CGGlyph *glyphs, CGSize *advances,
-                       UniCharCount length)
-{
-    NSArray *glyphRuns = (NSArray*)CTLineGetGlyphRuns(line);
-
-    // get a hold on the actual character widths and glyphs in line
-    UniCharCount offset = 0;
-    for (id item in glyphRuns) {
-        CTRunRef run  = (CTRunRef)item;
-        CFIndex count = CTRunGetGlyphCount(run);
-
-        if (count > 0 && count - offset > length)
-            count = length - offset;
-
-        CFRange range = CFRangeMake(0, count);
-
-        if (glyphs != NULL)
-            CTRunGetGlyphs(run, range, &glyphs[offset]);
-        if (advances != NULL)
-            CTRunGetAdvances(run, range, &advances[offset]);
-
-        offset += count;
-        if (offset >= length)
-            break;
-    }
-
-    return offset;
 }
 
     static UniCharCount
@@ -1106,98 +1041,15 @@ gatherGlyphs(CGGlyph glyphs[], UniCharCount count)
     return glyphCount;
 }
 
-    static UniCharCount
-ligatureGlyphsForChars(const unichar *chars, CGGlyph *glyphs,
-                       CGPoint *positions, UniCharCount length, CTFontRef font)
-{
-    // CoreText has no simple wait of retrieving a ligature for a set of
-    // UniChars. The way proposed on the CoreText ML is to convert the text to
-    // an attributed string, create a CTLine from it and retrieve the Glyphs
-    // from the CTRuns in it.
-    CGGlyph refGlyphs[length];
-    CGPoint refPositions[length];
-
-    memcpy(refGlyphs, glyphs, sizeof(CGGlyph) * length);
-    memcpy(refPositions, positions, sizeof(CGSize) * length);
-
-    memset(glyphs, 0, sizeof(CGGlyph) * length);
-
-    NSString *plainText = [NSString stringWithCharacters:chars length:length];
-    CFAttributedStringRef ligatureText = attributedStringForString(plainText,
-                                                                   font, YES);
-
-    CTLineRef ligature = CTLineCreateWithAttributedString(ligatureText);
-
-    CGSize ligatureRanges[length], regularRanges[length];
-
-    // get the (ligature)glyphs and advances for the new text
-    UniCharCount offset = fetchGlyphsAndAdvances(ligature, glyphs,
-                                                 ligatureRanges, length);
-    // fetch the advances for the base text
-    CTFontGetAdvancesForGlyphs(font, kCTFontOrientationDefault, refGlyphs,
-                               regularRanges, length);
-
-    CFRelease(ligatureText);
-    CFRelease(ligature);
-
-    // tricky part: compare both advance ranges and chomp positions which are
-    // covered by a single ligature while keeping glyphs not in the ligature
-    // font.
-#define fequal(a, b) (fabs((a) - (b)) < FLT_EPSILON)
-#define fless(a, b)((a) - (b) < FLT_EPSILON) && (fabs((a) - (b)) > FLT_EPSILON)
-
-    CFIndex skip = 0;
-    CFIndex i;
-    for (i = 0; i < offset && skip + i < length; ++i) {
-        memcpy(&positions[i], &refPositions[skip + i], sizeof(CGSize));
-
-        if (fequal(ligatureRanges[i].width, regularRanges[skip + i].width)) {
-            // [mostly] same width
-            continue;
-        } else if (fless(ligatureRanges[i].width,
-                         regularRanges[skip + i].width)) {
-            // original is wider than our result - use the original glyph
-            // FIXME: this is currently the only way to detect emoji (except
-            // for 'glyph[i] == 5')
-            glyphs[i] = refGlyphs[skip + i];
-            continue;
-        }
-
-        // no, that's a ligature
-        // count how many positions this glyph would take up in the base text
-        CFIndex j = 0;
-        float width = ceil(regularRanges[skip + i].width);
-
-        while ((int)width < (int)ligatureRanges[i].width
-                && skip + i + j < length) {
-            width += ceil(regularRanges[++j + skip + i].width);
-        }
-        skip += j;
-    }
-
-#undef fless
-#undef fequal
-
-    // as ligatures combine characters it is required to adjust the
-    // original length value
-    return offset;
-}
-
     static void
 recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
             UniCharCount length, CGContextRef context, CTFontRef fontRef,
-            NSMutableArray *fontCache, BOOL useLigatures)
+            NSMutableArray *fontCache)
 {
+
     if (CTFontGetGlyphsForCharacters(fontRef, chars, glyphs, length)) {
         // All chars were mapped to glyphs, so draw all at once and return.
-        if (useLigatures) {
-            length = ligatureGlyphsForChars(chars, glyphs, positions, length,
-                                            fontRef);
-        } else {
-            // only fixup surrogate pairs if we're not using ligatures
-            length = gatherGlyphs(glyphs, length);
-        }
-
+        length = gatherGlyphs(glyphs, length);
         CTFontDrawGlyphs(fontRef, glyphs, positions, length, context);
         return;
     }
@@ -1241,39 +1093,16 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
                 ++p;
             }
 
-            // Try to find a fallback font that can render the entire
-            // invalid range. If that fails, repeatedly halve the attempted
-            // range until a font is found.
+            // Figure out which font to draw these chars with.
             UniCharCount count = c - chars;
-            UniCharCount attemptedCount = count;
-            CTFontRef fallback = nil;
-            while (fallback == nil && attemptedCount > 0) {
-                fallback = lookupFont(fontCache, chars, attemptedCount,
-                                      fontRef);
-                if (!fallback)
-                    attemptedCount /= 2;
-            }
-
-            if (!fallback)
+            CTFontRef newFontRef = lookupFont(fontCache, chars, fontRef);
+            if (!newFontRef)
                 return;
 
-            recurseDraw(chars, glyphs, positions, attemptedCount, context,
-                        fallback, fontCache, useLigatures);
+            recurseDraw(chars, glyphs, positions, count, context, newFontRef,
+                        fontCache);
 
-            // If only a portion of the invalid range was rendered above,
-            // the remaining range needs to be attempted by subsequent
-            // iterations of the draw loop.
-            c -= count - attemptedCount;
-            g -= count - attemptedCount;
-            p -= count - attemptedCount;
-
-            CFRelease(fallback);
-        }
-
-        if (glyphs == g) {
-           // No valid chars in the glyphs. Exit from the possible infinite
-           // recursive call.
-           break;
+            CFRelease(newFontRef);
         }
 
         chars = c;
@@ -1293,9 +1122,6 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
     float y = frame.size.height - insetSize.height - (1+row)*cellSize.height;
     float w = cellSize.width;
 
-    // dphase
-    // NSLog(@"string! [%#x] %S", flags, chars);
-
     if (flags & DRAW_WIDE) {
         // NOTE: It is assumed that either all characters in 'chars' are wide
         // or all are normal width.
@@ -1308,6 +1134,8 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
     CGFloat clipWidth = cells > 0 ? cells*cellSize.width : w;
     CGRect clipRect = { {x, y}, {clipWidth, cellSize.height} };
     CGContextClipToRect(context, clipRect);
+
+    /* NSLog(@"vbevel! [%#x] %S", flags, chars); */
 
     if (!(flags & DRAW_TRANSP)) {
         // Draw the background of the text.  Note that if we ignore the
@@ -1335,12 +1163,14 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
                                  ALPHA(sp));
         CGContextFillRect(context, rect);
     } else if (flags & DRAW_BEVEL) {
+        // Horizontal Bevel
+        // ------------------------------------------------------------------------ 
         // Draw top of bevel
-        CGRect top_a = { {x, y + (cellSize.height - 1.5)}, {cells*cellSize.width, 1.5} };
-        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.20f);
+        CGRect top_a = { {x, y + (cellSize.height - 1.5)}, {cells * cellSize.width, 1.5} };
+        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.25f);
         CGContextFillRect(context, top_a);
 
-        CGRect top_b = { {x, y + (cellSize.height - 0.5)}, {cells*cellSize.width, 0.5} };
+        CGRect top_b = { {x, y + (cellSize.height - 0.5)}, {cells * cellSize.width, 0.5} };
         CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.45f);
         CGContextFillRect(context, top_b);
 
@@ -1350,8 +1180,28 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
         CGContextFillRect(context, bottom_a);
 
         CGRect bottom_b = { {x, y}, {cells*cellSize.width, 0.5} };
-        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.10f);
+        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.45f);
         CGContextFillRect(context, bottom_b);
+    } else if (flags == DRAW_VBEVEL) {
+        // Vertical Bevel
+        // ------------------------------------------------------------------------ 
+        // Draw left side of bevel
+        CGRect left_a = { {x, y}, {1.5, cellSize.height} };
+        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.25f);
+        CGContextFillRect(context, left_a);
+
+        CGRect left_b = { {x, y + (cellSize.height - 0.5)}, {0.5, cells * cellSize.height} };
+        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.45f);
+        CGContextFillRect(context, left_b);
+
+        // Draw right side of bevel
+        CGRect right_a = { {x + (cellSize.width - 1.5), y}, {1.5, cellSize.height} };
+        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.35f);
+        CGContextFillRect(context, right_a);
+
+        CGRect right_b = { {x + (cellSize.width - 0.5), y}, {0.5, cells * cellSize.height} };
+        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.5f);
+        CGContextFillRect(context, right_b);
     } else if (flags & DRAW_UNDERC) {
         // Draw curly underline
         int k;
@@ -1411,7 +1261,7 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
     }
 
     CGContextSetTextPosition(context, x, y+fontDescent);
-    recurseDraw(chars, glyphs, positions, length, context, fontRef, fontCache, ligatures);
+    recurseDraw(chars, glyphs, positions, length, context, fontRef, fontCache);
 
     CFRelease(fontRef);
     CGContextRestoreGState(context);
@@ -1555,3 +1405,5 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
 }
 
 @end // MMCoreTextView (Drawing)
+
+#endif // !MM_ENABLE_ATSUI

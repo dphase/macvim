@@ -144,8 +144,9 @@
 #endif
 #define DRAW_CURSOR		0x20	/* drawing block cursor (win32) */
 #define DRAW_BEVEL              0x40    /* draw beveled row */
-#define DRAW_WIDE		0x80	/* drawing wide char (MacVim) */
-#define DRAW_COMP		0x160   /* drawing composing char (MacVim) */
+#define DRAW_VBEVEL             0x80    /* draw vertical bevel */
+#define DRAW_WIDE		0x100	/* drawing wide char (MacVim) */
+#define DRAW_COMP		0x200   /* drawing composing char (MacVim) */
 
 /* For our own tearoff menu item */
 #define TEAR_STRING		"-->Detach"

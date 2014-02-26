@@ -632,7 +632,8 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define HL_UNDERCURL		0x10
 #define HL_STANDOUT		0x20
 #define HL_BEVEL                0x40
-#define HL_ALL			0x4f
+#define HL_VBEVEL               0x80
+#define HL_ALL			0x100
 
 /* special attribute addition: Put message in history */
 #define MSG_HIST		0x1000

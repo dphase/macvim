@@ -2409,6 +2409,10 @@ gui_outstr_nowrap(
     if (hl_mask_todo & HL_BEVEL)
         draw_flags |= DRAW_BEVEL;
 
+    /* Do we vbevel text row */
+    if (hl_mask_todo & HL_VBEVEL)
+        draw_flags |= DRAW_VBEVEL;
+
     /* Do we draw transparently? */
     if (flags & GUI_MON_TRS_CURSOR)
 	draw_flags |= DRAW_TRANSP;
