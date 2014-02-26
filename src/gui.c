@@ -2412,6 +2412,10 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
     if (hl_mask_todo & HL_UNDERCURL)
 	draw_flags |= DRAW_UNDERC;
 
+    /* Do we bevel text row */
+    if (hl_mask_todo & HL_BEVEL)
+        draw_flags |= DRAW_BEVEL;
+
     /* Do we draw transparently? */
     if (flags & GUI_MON_TRS_CURSOR)
 	draw_flags |= DRAW_TRANSP;

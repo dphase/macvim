@@ -2539,6 +2539,7 @@ typedef struct
     int		italic;
     int		underline;
     int		undercurl;
+    int         bevel;
 } prt_text_attr_T;
 
 /*

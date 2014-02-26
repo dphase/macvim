@@ -17905,6 +17905,8 @@ f_synIDattr(argvars, rettv)
 	case 'b':
 		if (TOLOWER_ASC(what[1]) == 'g')	/* bg[#] */
 		    p = highlight_color(id, what, modec);
+                else if (TOLOWER_ASC(what[1]) == 'e')   /* bevel */
+                    p = highlight_has_attr(id, HL_BEVEL, modec);
 		else					/* bold */
 		    p = highlight_has_attr(id, HL_BOLD, modec);
 		break;

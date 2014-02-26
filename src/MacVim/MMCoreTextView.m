@@ -45,6 +45,7 @@
 #define DRAW_UNDERC               0x08    /* draw undercurl text */
 #define DRAW_ITALIC               0x10    /* draw italic text */
 #define DRAW_CURSOR               0x20
+#define DRAW_BEVEL                0x3f
 #define DRAW_WIDE                 0x40    /* draw wide text */
 
 @interface MMCoreTextView (Private)
@@ -808,6 +809,7 @@ defaultAdvanceForFont(NSFont *font)
                 toRow:(int)row2 column:(int)col2
 {
     NSRect frame = [self bounds];
+
     return NSMakeRect(
             insetSize.width + col1*cellSize.width,
             frame.size.height - insetSize.height - (row2+1)*cellSize.height,
@@ -1119,6 +1121,9 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
     float y = frame.size.height - insetSize.height - (1+row)*cellSize.height;
     float w = cellSize.width;
 
+    // dphase
+    // NSLog(@"string! [%#x] %S", flags, chars);
+
     if (flags & DRAW_WIDE) {
         // NOTE: It is assumed that either all characters in 'chars' are wide
         // or all are normal width.
@@ -1150,12 +1155,15 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
         CGContextSetBlendMode(context, kCGBlendModeNormal);
     }
 
+
     if (flags & DRAW_UNDERL) {
         // Draw underline
         CGRect rect = { {x, y+0.4*fontDescent}, {cells*cellSize.width, 1} };
         CGContextSetRGBFillColor(context, RED(sp), GREEN(sp), BLUE(sp),
                                  ALPHA(sp));
         CGContextFillRect(context, rect);
+    } else if (flags == DRAW_BEVEL) {
+        NSLog(@"dphase bevel: [%#x] %S", flags, chars);
     } else if (flags & DRAW_UNDERC) {
         // Draw curly underline
         int k;
@@ -1199,8 +1207,9 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
     CTFontRef fontRef = (CTFontRef)(flags & DRAW_WIDE ? [fontWide retain]
                                                       : [font retain]);
     unsigned traits = 0;
-    if (flags & DRAW_ITALIC)
+    if (flags & DRAW_ITALIC) {
         traits |= kCTFontItalicTrait;
+    }
     if (flags & DRAW_BOLD)
         traits |= kCTFontBoldTrait;
 
