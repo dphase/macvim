@@ -143,6 +143,7 @@
 # define DRAW_ITALIC		0x10	/* draw italic text */
 #endif
 #define DRAW_CURSOR		0x20	/* drawing block cursor (win32) */
+#define DRAW_BEVEL              0x3f    /* draw beveled row */
 #define DRAW_WIDE		0x40	/* drawing wide char (MacVim) */
 #define DRAW_COMP		0x80	/* drawing composing char (MacVim) */
 

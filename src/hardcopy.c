@@ -281,6 +281,7 @@ prt_get_attr(
     pattr->italic = (highlight_has_attr(hl_id, HL_ITALIC, modec) != NULL);
     pattr->underline = (highlight_has_attr(hl_id, HL_UNDERLINE, modec) != NULL);
     pattr->undercurl = (highlight_has_attr(hl_id, HL_UNDERCURL, modec) != NULL);
+    pattr->bevel = (highlight_has_attr(hl_id, HL_BEVEL, modec) != NULL);
 
 # ifdef FEAT_GUI
     if (gui.in_use)
