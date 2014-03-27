@@ -1135,8 +1135,6 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
     CGRect clipRect = { {x, y}, {clipWidth, cellSize.height} };
     CGContextClipToRect(context, clipRect);
 
-    /* NSLog(@"vbevel! [%#x] %S", flags, chars); */
-
     if (!(flags & DRAW_TRANSP)) {
         // Draw the background of the text.  Note that if we ignore the
         // DRAW_TRANSP flag and always draw the background, then the insert
@@ -1166,41 +1164,41 @@ recurseDraw(const unichar *chars, CGGlyph *glyphs, CGPoint *positions,
         // Horizontal Bevel
         // ------------------------------------------------------------------------ 
         // Draw top of bevel
-        CGRect top_a = { {x, y + (cellSize.height - 1.5)}, {cells * cellSize.width, 1.5} };
-        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.25f);
+        CGRect top_a = { {x, y + (cellSize.height - 1.0)}, {cells * cellSize.width, 1.0} };
+        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.40f);
         CGContextFillRect(context, top_a);
 
-        CGRect top_b = { {x, y + (cellSize.height - 0.5)}, {cells * cellSize.width, 0.5} };
-        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.45f);
+        CGRect top_b = { {x, y + (cellSize.height - 1.25)}, {cells * cellSize.width, 1.25} };
+        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.30f);
         CGContextFillRect(context, top_b);
 
         // Draw bottom of bevel
-        CGRect bottom_a = { {x, y}, {cells*cellSize.width, 1.5} };
-        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.35f);
+        CGRect bottom_a = { {x, y}, {cells*cellSize.width, 1.0} };
+        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.50f);
         CGContextFillRect(context, bottom_a);
 
-        CGRect bottom_b = { {x, y}, {cells*cellSize.width, 0.5} };
+        CGRect bottom_b = { {x, y}, {cells*cellSize.width, 1.25} };
         CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.45f);
         CGContextFillRect(context, bottom_b);
     } else if (flags == DRAW_VBEVEL) {
         // Vertical Bevel
         // ------------------------------------------------------------------------ 
         // Draw left side of bevel
-        CGRect left_a = { {x, y}, {1.5, cellSize.height} };
-        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.25f);
+        CGRect left_a = { {x, y}, {1.0, cellSize.height} };
+        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.40f);
         CGContextFillRect(context, left_a);
 
-        CGRect left_b = { {x, y + (cellSize.height - 0.5)}, {0.5, cells * cellSize.height} };
-        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.45f);
+        CGRect left_b = { {x + (cellSize.height - 1.25), y}, {1.25, (cells * cellSize.height)} };
+        CGContextSetRGBFillColor(context, 1.0f, 1.0f, 1.0f, 0.30f);
         CGContextFillRect(context, left_b);
 
         // Draw right side of bevel
-        CGRect right_a = { {x + (cellSize.width - 1.5), y}, {1.5, cellSize.height} };
-        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.35f);
+        CGRect right_a = { {x + (cellSize.width - 1.0), y}, {1.0, cellSize.height} };
+        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.50f);
         CGContextFillRect(context, right_a);
 
-        CGRect right_b = { {x + (cellSize.width - 0.5), y}, {0.5, cells * cellSize.height} };
-        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.5f);
+        CGRect right_b = { {x + (cellSize.width - 1.25), y}, {1.25, (cells * cellSize.height)} };
+        CGContextSetRGBFillColor(context, 0.0f, 0.0f, 0.0f, 0.45f);
         CGContextFillRect(context, right_b);
     } else if (flags & DRAW_UNDERC) {
         // Draw curly underline
